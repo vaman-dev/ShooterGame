@@ -1,0 +1,273 @@
+ROTATION SYSTEM DOCUMENTATION
+TPS Third-Person Shooter Movement & Camera Rotation
+===================================================
+
+OVERVIEW
+--------
+This document describes the rotation and movement system for the player character.
+The system decouples camera rotation from player movement direction, allowing
+independent control where the camera looks one way and the player moves another
+(while still maintaining responsive direction facing).
+
+The architecture is designed for scalability - new movement states, aiming modes,
+and camera configurations can be added without rewriting core rotation logic.
+
+===================================================
+COMPONENT BREAKDOWN
+===================================================
+
+1. PLAYERINPUTREADER (Assets/Scripts/Core/PlayerInputReader.cs)
+   - Reads mouse look input (LookInput)
+   - Reads movement input (MoveInput - WASD/analog)
+   - Exposes IsSprintHeld, IsAimHeld flags
+   - Consumes jump input events
+
+2. PLAYERCONTROLLER (Assets/Scripts/Core/PlayerController.cs)
+   - State machine using IMovementState pattern
+   - Handles ground/air movement logic
+   - Provides camera-relative movement direction
+   - Manages velocity, gravity, jumping
+
+3. CAMERARIGCONTROLLER (Assets/Scripts/Camera/CameraRigController.cs)
+   - Rotates camera pivots (yaw/pitch) based on mouse input
+   - Rotates PlayerRoot based on state (aiming vs free roam)
+   - Handles smooth turning via Slerp or instant snap
+   - Manages aim sensitivity adjustments
+
+===================================================
+FLOW DIAGRAM
+===================================================
+
+                                   +-------------------+
+                                   |  Player Input     |
+                                   |  (Mouse & Keyboard)|
+                                   +--------+----------+
+                                            |
+                                            v
+                                   +-------------------+
+                                   | PlayerInputReader |
+                                   |  - LookInput       |
+                                   |  - MoveInput       |
+                                   +--------+----------+
+                                            |
+                                            v
+                                   +-------------------+
+                                   |   PlayerController|
+                                   |   - State Machine  |
+       +-----------------+                 +--------+----------+
+       |                   |                       |
+       v                   v                       v
++-----------+   +-----------+   +-----------+   +---------------+
+| Normal    |   | Sprint    |   | Jump      |   | CameraRigCtrl |
+| Movement  |   | Movement  |   | Movement  |   | - Rotation    |
+| State     |   | State     |   | State     |   | - Slerp/Snap  |
++-----------+   +-----------+   +-----------+   +---------------+
+       |                   |                       |
+       +-----------+---------+-----------------------+
+                   |
+                   v
+           +-------------------------------+
+           | GetCameraRelativeDirection()  |
+           | (PlayerController)            |
+           | - Uses cameraTransform.forward|
+           | - Uses cameraTransform.right  |
+           | - Returns direction vector    |
+           +-------------------------------+
+                   |
+                   v
+           +-------------------------------+
+           | ApplyRootRotation()          |
+           | (CameraRigController)         |
+           | - If aiming: snap to camera   |
+           | - If moving: face movement    |
+           |   direction                   |
+           | - If standing: free orbit     |
+           +-------------------------------+
+                   |
+                   v
+           +-------------------------------+
+           | MoveCharacter()             |
+           | (PlayerController)          |
+           | - characterController.Move   |
+           | - velocity * deltaTime       |
+           +-------------------------------+
+
+===================================================
+CODE SNIPPETS
+===================================================
+
+1. GetCameraRelativeMovementDirection() - PlayerController.cs (lines 191-210)
+
+   private Vector3 GetCameraRelativeMovementDirection()
+   {
+       Vector2 input = inputReader.MoveInput;
+
+       if (input.sqrMagnitude <= 0.01f)
+           return Vector3.zero;
+
+       Vector3 cameraForward = cameraTransform.forward;
+       Vector3 cameraRight = cameraTransform.right;
+
+       cameraForward.y = 0f;
+       cameraRight.y = 0f;
+
+       cameraForward.Normalize();
+       cameraRight.Normalize();
+
+       Vector3 direction = cameraForward * input.y + cameraRight * input.x;
+
+       return Vector3.ClampMagnitude(direction, 1f);
+   }
+
+   Explanation: Converts raw input into a direction vector that is relative
+   to the camera's orientation. The Y axis is zeroed out so only horizontal
+   rotation matters. This allows the player to move "forward" relative to
+   where the camera is looking, not where the player model faces.
+
+2. ApplyRootRotation() - CameraRigController.cs (lines 114-145)
+
+   private void ApplyRootRotation()
+   {
+       Quaternion targetYaw = Quaternion.Euler(0f, cameraYaw, 0f);
+
+       if (IsAiming)
+       {
+           if (instantSnapWhileAiming)
+           {
+               root.rotation = targetYaw;
+           }
+           else
+           {
+               root.rotation = Quaternion.Slerp(
+                   root.rotation,
+                   targetYaw,
+                   1f - Mathf.Exp(-aimTurnSharpness * Time.deltaTime)
+               );
+           }
+       }
+       else if (playerController.HasMovementInput)
+       {
+           Vector3 movementDirection = playerController.MovementDirection;
+           targetYaw = Quaternion.LookRotation(movementDirection, Vector3.up);
+
+           root.rotation = Quaternion.Slerp(
+               root.rotation,
+               targetYaw,
+               1f - Mathf.Exp(-freeRoamTurnSharpness * Time.deltaTime)
+           );
+       }
+       // Standing still, not aiming → Root untouched. Free orbit.
+   }
+
+   Explanation: Determines how PlayerRoot rotates based on current state:
+   - Aiming: PlayerRoot rotates to match camera yaw (smooth or instant)
+   - Moving (not aiming): PlayerRoot rotates to face movement direction
+   - Standing still: PlayerRoot stays as-is (allows free camera orbit)
+
+3. ReadLookInput() - CameraRigController.cs (lines 83-92)
+
+   private void ReadLookInput()
+   {
+       Vector2 look = inputReader.LookInput;
+       float currentPitchSens = IsAiming ? aimPitchSensitivity : pitchSensitivity;
+
+       cameraYaw += look.x * (IsAiming ? aimYawSensitivity : yawSensitivity);
+       cameraPitch -= look.y * currentPitchSens;
+       cameraPitch = Mathf.Clamp(cameraPitch, minPitch, maxPitch);
+   }
+
+   Explanation: Accumulates mouse input into cameraYaw and cameraPitch.
+   Sensitivity changes when aiming. Pitch is clamped to prevent over-rotation.
+
+===================================================
+PIPELINE INTEGRATION
+===================================================
+
+Input Flow:
+-----------
+1. Every frame, PlayerInputReader.Update() reads input from Unity Input System
+2. LookInput (mouse X/Y) flows to CameraRigController.LateUpdate()
+3. MoveInput flows to PlayerController.Tick() → currentState.Tick(this)
+4. PlayerController moves character based on camera-relative direction
+
+State Machine Flow:
+-------------------
+- Player starts in NormalMovementState
+- Transitions based on input (Sprint, Jump)
+- Each state Tick() calls appropriate movement logic
+- CameraRigController always runs in LateUpdate() independent of state
+
+Rotation Pipeline:
+------------------
+Mouse Input → ReadLookInput() → cameraYaw/cameraPitch update
+                → ApplyCameraRotation() → cameraYawPivot & cameraPitchPivot rotate
+                → ApplyRootRotation() → PlayerRoot rotates based on state
+Movement Pipeline:
+------------------
+MoveInput → GetCameraRelativeMovementDirection() → movement direction
+                → TickGroundMovement()/TickAirMovement() → velocity set
+                → MoveCharacter() → characterController.Move()
+
+===================================================
+SCALABILITY Analysis
+===================================================
+
+WHY THIS DESIGN IS SCALABLE:
+
+1. STATE PATTERN (IMovementState)
+   - New movement types (Crouch, Slide, Swim) can be added as new state classes
+   - No need to modify core rotation logic
+   - Each state encapsulates its own transition rules
+
+2. SEPARATION OF CONCERNS
+   - Camera rotation (CameraRigController) independent of movement states
+   - Input reading (PlayerInputReader) independent of both
+   - Clear interfaces (IMovementState) define contracts
+
+3. STATE-BASED ROTATION BEHAVIOR
+   - ApplyRootRotation() checks IsAiming and HasMovementInput flags
+   - New states can set these flags differently
+   - Example: Crouching state could have different turn sharpness
+
+4. EASY TUNING
+   - All sensitivity and sharpness values are serialized fields
+   - Can be adjusted per-state or per-situation
+   - No code changes needed for balancing
+
+5. EXTENSIBLE INPUT SYSTEM
+   - New input actions can be added to PlayerInputReader
+   - LookInput already decoupled from specific mouse setup
+   - Supporting gamepad, touch, VR inputs straightforward
+
+6. MULTIPLE CAMERA CONFIGURATIONS
+   - cameraYawPivot and cameraPitchPivot structure allows
+     different camera hierarchies
+   - Could support shoulder-camera, first-person, third-person modes
+   - Just need to wire up appropriate transforms
+
+FUTURE EXTENSION IDEAS:
+-----------------------
+- Add combat roll with separate rotation animation
+- Add locking-on target system
+- Add procedural animation-driven rotation
+- Support VR headset rotation
+- Add network interpolation for rotation sync
+- Add cinematic camera cut transitions
+
+===================================================
+CONCLUSION
+===================================================
+
+The rotation system provides a clean decoupling between camera orientation
+and player movement direction. Using the State Pattern and clear separation
+of concerns, the system is both functional for the current TPS gameplay
+and architectured for future expansion.
+
+Key success factors:
+- Mouse look rotates camera pivots only
+- PlayerRoot rotation determined by current movement state
+- Camera-relative movement direction ensures intuitive control
+- All parameters exposed for designer tuning without code changes
+
+This design has enabled rapid iteration on movement feel while maintaining
+code stability across feature additions.
