@@ -9,7 +9,7 @@ public class PlayerCameraFeedback : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private PlayerController playerController;
-
+    [SerializeField] private WeaponController weaponController;
 
     // =========================================================
     // IMPULSE SOURCES
@@ -136,6 +136,13 @@ public class PlayerCameraFeedback : MonoBehaviour
             playerController =
                 GetComponent<PlayerController>();
         }
+
+
+        if (weaponController == null)
+        {
+            weaponController =
+                GetComponent<WeaponController>();
+        }
     }
 
 
@@ -145,31 +152,42 @@ public class PlayerCameraFeedback : MonoBehaviour
 
     private void OnEnable()
     {
-        if (playerController == null)
-            return;
+        if (playerController != null)
+        {
+            playerController.JumpStarted +=
+                HandleJumpStarted;
 
 
-        playerController.JumpStarted +=
-            HandleJumpStarted;
+            playerController.Landed +=
+                HandleLanded;
+        }
 
 
-        playerController.Landed +=
-            HandleLanded;
+        if (weaponController != null)
+        {
+            weaponController.ShotFired +=
+                HandleShotFired;
+        }
     }
-
 
     private void OnDisable()
     {
-        if (playerController == null)
-            return;
+        if (playerController != null)
+        {
+            playerController.JumpStarted -=
+                HandleJumpStarted;
 
 
-        playerController.JumpStarted -=
-            HandleJumpStarted;
+            playerController.Landed -=
+                HandleLanded;
+        }
 
 
-        playerController.Landed -=
-            HandleLanded;
+        if (weaponController != null)
+        {
+            weaponController.ShotFired -=
+                HandleShotFired;
+        }
     }
 
 
@@ -188,6 +206,12 @@ public class PlayerCameraFeedback : MonoBehaviour
         PlayLandingImpulse(
             downwardSpeed
         );
+    }
+
+
+    private void HandleShotFired()
+    {
+        PlayWeaponImpulse();
     }
 
 
