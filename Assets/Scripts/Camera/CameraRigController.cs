@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class CameraRigController : MonoBehaviour
@@ -47,14 +48,26 @@ public class CameraRigController : MonoBehaviour
     [SerializeField] private float aimTurnSharpness = 20f;
     [SerializeField] private bool instantSnapWhileAiming = false;
 
+    [Header("Turn In Place")]
+    [SerializeField, Range(0f, 180f)] private float turnInPlaceTriggerAngle = 65f;
+    [SerializeField, Min(0.01f)] private float turnInPlaceDuration = 0.55f;
+    [SerializeField, Min(0f)] private float stationaryMovementThreshold = 0.05f;
+
     // =========================================================
     // STATE
     // =========================================================
 
     public bool IsAiming { get; private set; }
 
+    public event Action<TurnInPlaceDirection> TurnInPlaceStarted;
+
     private float cameraYaw;
     private float cameraPitch;
+
+    private bool isTurningInPlace;
+    private float turnElapsed;
+    private Quaternion turnStartRotation;
+    private Quaternion turnTargetRotation;
 
     // =========================================================
     // INIT
@@ -115,6 +128,109 @@ public class CameraRigController : MonoBehaviour
     // =========================================================
 
     private void ApplyRootRotation()
+    {
+        if (coverController != null && coverController.IsInCover)
+        {
+            CancelTurnInPlace();
+            return;
+        }
+
+        bool stationary = IsPlayerStationary();
+
+        if (isTurningInPlace)
+        {
+            if (!stationary)
+            {
+                CancelTurnInPlace();
+            }
+            else
+            {
+                TickTurnInPlace();
+                return;
+            }
+        }
+
+        if (IsAiming && stationary)
+        {
+            TryStartTurnInPlace();
+            return;
+        }
+
+        RotateRootForCurrentMode();
+    }
+
+    private bool IsPlayerStationary()
+    {
+        if (playerController == null)
+            return true;
+
+        Vector3 movement = playerController.MovementDirection;
+        movement.y = 0f;
+
+        return movement.sqrMagnitude <=
+               stationaryMovementThreshold * stationaryMovementThreshold;
+    }
+
+    private float GetAimYawDelta()
+    {
+        return Mathf.DeltaAngle(root.eulerAngles.y, cameraYaw);
+    }
+
+    private void TryStartTurnInPlace()
+    {
+        float yawDelta = GetAimYawDelta();
+
+        if (Mathf.Abs(yawDelta) < turnInPlaceTriggerAngle)
+            return;
+
+        float turnAmount = Mathf.Clamp(yawDelta, -90f, 90f);
+
+        turnStartRotation = root.rotation;
+        turnTargetRotation = Quaternion.Euler(
+            0f,
+            root.eulerAngles.y + turnAmount,
+            0f
+        );
+        turnElapsed = 0f;
+        isTurningInPlace = true;
+
+        TurnInPlaceDirection direction =
+            turnAmount > 0f
+                ? TurnInPlaceDirection.Right
+                : TurnInPlaceDirection.Left;
+
+        TurnInPlaceStarted?.Invoke(direction);
+    }
+
+    private void TickTurnInPlace()
+    {
+        turnElapsed += Time.deltaTime;
+
+        float normalizedTime = Mathf.Clamp01(
+            turnElapsed / Mathf.Max(turnInPlaceDuration, 0.01f)
+        );
+        float smoothTime = Mathf.SmoothStep(0f, 1f, normalizedTime);
+
+        root.rotation = Quaternion.Slerp(
+            turnStartRotation,
+            turnTargetRotation,
+            smoothTime
+        );
+
+        if (normalizedTime < 1f)
+            return;
+
+        root.rotation = turnTargetRotation;
+        isTurningInPlace = false;
+    }
+
+    private void CancelTurnInPlace()
+    {
+        isTurningInPlace = false;
+        turnElapsed = 0f;
+    }
+
+    private void RotateRootForCurrentMode()
     {
         if (coverController != null && coverController.IsInCover)
             return;

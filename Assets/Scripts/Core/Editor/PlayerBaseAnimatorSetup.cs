@@ -6,7 +6,7 @@ using UnityEngine;
 public static class PlayerBaseAnimatorSetup
 {
     private const string RepairVersionKey =
-        "TPS.PlayerAnimationRepair.v1";
+        "TPS.PlayerAnimationRepair.v3";
 
     private const string AnimationFolder =
         "Assets/Animaton/Male Locomotion Pack/Player/";
@@ -24,6 +24,8 @@ public static class PlayerBaseAnimatorSetup
     private const string IsGrounded = "IsGrounded";
     private const string VerticalVelocity = "VerticalVelocity";
     private const string Jump = "Jump";
+    private const string TurnLeft90 = "TurnLeft90";
+    private const string TurnRight90 = "TurnRight90";
 
     [InitializeOnLoadMethod]
     private static void SchedulePendingRepair()
@@ -61,8 +63,8 @@ public static class PlayerBaseAnimatorSetup
         ConfigureClipImport("left strafe.fbx", true);
         ConfigureClipImport("right strafe.fbx", true);
         ConfigureClipImport("jump.fbx", false);
-        ConfigureClipImport("left turn 90.fbx", false);
-        ConfigureClipImport("right turn 90.fbx", false);
+        ConfigureClipImport("left turn 90.fbx", false, true);
+        ConfigureClipImport("right turn 90.fbx", false, true);
 
         AnimatorController controller =
             AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
@@ -83,6 +85,8 @@ public static class PlayerBaseAnimatorSetup
         EnsureParameter(controller, IsGrounded, AnimatorControllerParameterType.Bool);
         EnsureParameter(controller, VerticalVelocity, AnimatorControllerParameterType.Float);
         EnsureParameter(controller, Jump, AnimatorControllerParameterType.Trigger);
+        EnsureParameter(controller, TurnLeft90, AnimatorControllerParameterType.Trigger);
+        EnsureParameter(controller, TurnRight90, AnimatorControllerParameterType.Trigger);
 
         AnimatorStateMachine stateMachine =
             controller.layers[0].stateMachine;
@@ -114,6 +118,8 @@ public static class PlayerBaseAnimatorSetup
         AnimationClip runLeft = LoadClip("left strafe.fbx");
         AnimationClip runRight = LoadClip("right strafe.fbx");
         AnimationClip jump = LoadClip("jump.fbx");
+        AnimationClip turnLeft = LoadClip("left turn 90.fbx");
+        AnimationClip turnRight = LoadClip("right turn 90.fbx");
 
         if (new[]
             {
@@ -124,7 +130,9 @@ public static class PlayerBaseAnimatorSetup
                 walkRight,
                 runLeft,
                 runRight,
-                jump
+                jump,
+                turnLeft,
+                turnRight
             }.Any(clip => clip == null))
         {
             Object.DestroyImmediate(locomotionTree, true);
@@ -185,6 +193,28 @@ public static class PlayerBaseAnimatorSetup
             IsGrounded
         );
 
+        AnimatorState turnLeftState =
+            stateMachine.AddState("Turn Left 90", new Vector3(50f, 180f));
+
+        turnLeftState.motion = turnLeft;
+
+        AnimatorState turnRightState =
+            stateMachine.AddState("Turn Right 90", new Vector3(550f, 180f));
+
+        turnRightState.motion = turnRight;
+
+        AddTurnTransitions(
+            locomotionState,
+            turnLeftState,
+            TurnLeft90
+        );
+
+        AddTurnTransitions(
+            locomotionState,
+            turnRightState,
+            TurnRight90
+        );
+
         AttachControllerToPlayerPrefab(controller);
 
         EditorUtility.SetDirty(controller);
@@ -194,13 +224,49 @@ public static class PlayerBaseAnimatorSetup
         AssetDatabase.Refresh();
 
         Debug.Log(
-            "[Animation Setup] Base locomotion, responsive landing, baked root transforms, and Player prefab wiring completed."
+            "[Animation Setup] Base locomotion, jump, stationary ADS turns, baked root transforms, and Player prefab wiring completed."
+        );
+    }
+
+    private static void AddTurnTransitions(
+        AnimatorState locomotionState,
+        AnimatorState turnState,
+        string triggerParameter)
+    {
+        AnimatorStateTransition enterTransition =
+            locomotionState.AddTransition(turnState);
+
+        enterTransition.hasExitTime = false;
+        enterTransition.duration = 0.05f;
+        enterTransition.AddCondition(
+            AnimatorConditionMode.If,
+            0f,
+            triggerParameter
+        );
+
+        AnimatorStateTransition exitTransition =
+            turnState.AddTransition(locomotionState);
+
+        exitTransition.hasExitTime = true;
+        exitTransition.exitTime = 0.9f;
+        exitTransition.duration = 0.08f;
+
+        AnimatorStateTransition movementInterrupt =
+            turnState.AddTransition(locomotionState);
+
+        movementInterrupt.hasExitTime = false;
+        movementInterrupt.duration = 0.05f;
+        movementInterrupt.AddCondition(
+            AnimatorConditionMode.Greater,
+            0.1f,
+            MoveAmount
         );
     }
 
     private static void ConfigureClipImport(
         string fileName,
-        bool shouldLoop)
+        bool shouldLoop,
+        bool configureTurnRootTransforms = false)
     {
         string path = AnimationFolder + fileName;
         ModelImporter importer =
@@ -224,11 +290,19 @@ public static class PlayerBaseAnimatorSetup
 
         for (int index = 0; index < clips.Length; index++)
         {
+            bool turnRootTransformsMatch =
+                !configureTurnRootTransforms ||
+                clips[index].keepOriginalOrientation &&
+                !clips[index].keepOriginalPositionY &&
+                clips[index].heightFromFeet &&
+                clips[index].keepOriginalPositionXZ;
+
             if (clips[index].loopTime == shouldLoop &&
                 clips[index].lockRootRotation &&
                 clips[index].lockRootHeightY &&
                 clips[index].lockRootPositionXZ &&
-                !clips[index].mirror)
+                !clips[index].mirror &&
+                turnRootTransformsMatch)
             {
                 continue;
             }
@@ -238,6 +312,15 @@ public static class PlayerBaseAnimatorSetup
             clips[index].lockRootHeightY = true;
             clips[index].lockRootPositionXZ = true;
             clips[index].mirror = false;
+
+            if (configureTurnRootTransforms)
+            {
+                clips[index].keepOriginalOrientation = true;
+                clips[index].keepOriginalPositionY = false;
+                clips[index].heightFromFeet = true;
+                clips[index].keepOriginalPositionXZ = true;
+            }
+
             changed = true;
         }
 
@@ -354,8 +437,19 @@ public static class PlayerBaseAnimatorSetup
                 return;
             }
 
-            animator.runtimeAnimatorController = controller;
-            animator.applyRootMotion = false;
+            bool prefabChanged = false;
+
+            if (animator.runtimeAnimatorController != controller)
+            {
+                animator.runtimeAnimatorController = controller;
+                prefabChanged = true;
+            }
+
+            if (animator.applyRootMotion)
+            {
+                animator.applyRootMotion = false;
+                prefabChanged = true;
+            }
 
             PlayerAnimationController animationController =
                 prefabRoot.GetComponent<PlayerAnimationController>();
@@ -364,15 +458,27 @@ public static class PlayerBaseAnimatorSetup
             {
                 animationController =
                     prefabRoot.AddComponent<PlayerAnimationController>();
+
+                prefabChanged = true;
             }
 
             SerializedObject serializedController =
                 new SerializedObject(animationController);
 
-            serializedController.FindProperty("animator").objectReferenceValue = animator;
-            serializedController.ApplyModifiedPropertiesWithoutUndo();
+            SerializedProperty animatorProperty =
+                serializedController.FindProperty("animator");
 
-            PrefabUtility.SaveAsPrefabAsset(prefabRoot, PlayerPrefabPath);
+            if (animatorProperty.objectReferenceValue != animator)
+            {
+                animatorProperty.objectReferenceValue = animator;
+                serializedController.ApplyModifiedPropertiesWithoutUndo();
+                prefabChanged = true;
+            }
+
+            if (prefabChanged)
+            {
+                PrefabUtility.SaveAsPrefabAsset(prefabRoot, PlayerPrefabPath);
+            }
         }
         finally
         {

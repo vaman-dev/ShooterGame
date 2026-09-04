@@ -103,6 +103,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationController
   animator: {fileID: 6405711650220802046}
   playerController: {fileID: 0}
+  cameraRigController: {fileID: 0}
   directionDampTime: 0.1
   movementDampTime: 0.1
 --- !u!95 &6405711650220802046 stripped

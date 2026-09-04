@@ -1540,7 +1540,10 @@ MonoBehaviour:
   aimPitchSensitivity: 0.1
   freeRoamTurnSharpness: 10
   aimTurnSharpness: 20
-  instantSnapWhileAiming: 1
+  instantSnapWhileAiming: 0
+  turnInPlaceTriggerAngle: 65
+  turnInPlaceDuration: 0.55
+  stationaryMovementThreshold: 0.05
 --- !u!114 &525899166
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2717,6 +2720,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationController
   animator: {fileID: 2011340183}
   playerController: {fileID: 1370554181}
+  cameraRigController: {fileID: 525899165}
   directionDampTime: 0.1
   movementDampTime: 0.1
 --- !u!1 &1497385054

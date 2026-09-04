@@ -14,6 +14,9 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField]
     private PlayerController playerController;
 
+    [SerializeField]
+    private CameraRigController cameraRigController;
+
 
     // =========================================================
     // LOCOMOTION SETTINGS
@@ -55,6 +58,12 @@ public class PlayerAnimationController : MonoBehaviour
     private static readonly int JumpHash =
         Animator.StringToHash("Jump");
 
+    private static readonly int TurnLeft90Hash =
+        Animator.StringToHash("TurnLeft90");
+
+    private static readonly int TurnRight90Hash =
+        Animator.StringToHash("TurnRight90");
+
 
     // =========================================================
     // UNITY
@@ -74,6 +83,14 @@ public class PlayerAnimationController : MonoBehaviour
             playerController =
                 GetComponentInParent<PlayerController>();
         }
+
+
+        if (cameraRigController == null &&
+            playerController != null)
+        {
+            cameraRigController =
+                playerController.GetComponentInChildren<CameraRigController>(true);
+        }
     }
 
 
@@ -84,6 +101,13 @@ public class PlayerAnimationController : MonoBehaviour
             playerController.JumpStarted +=
                 HandleJumpStarted;
         }
+
+
+        if (cameraRigController != null)
+        {
+            cameraRigController.TurnInPlaceStarted +=
+                HandleTurnInPlaceStarted;
+        }
     }
 
 
@@ -93,6 +117,13 @@ public class PlayerAnimationController : MonoBehaviour
         {
             playerController.JumpStarted -=
                 HandleJumpStarted;
+        }
+
+
+        if (cameraRigController != null)
+        {
+            cameraRigController.TurnInPlaceStarted -=
+                HandleTurnInPlaceStarted;
         }
     }
 
@@ -211,5 +242,24 @@ public class PlayerAnimationController : MonoBehaviour
         animator.SetTrigger(
             JumpHash
         );
+    }
+
+
+    private void HandleTurnInPlaceStarted(
+        TurnInPlaceDirection direction)
+    {
+        if (animator == null)
+            return;
+
+        switch (direction)
+        {
+            case TurnInPlaceDirection.Left:
+                animator.SetTrigger(TurnLeft90Hash);
+                break;
+
+            case TurnInPlaceDirection.Right:
+                animator.SetTrigger(TurnRight90Hash);
+                break;
+        }
     }
 }
