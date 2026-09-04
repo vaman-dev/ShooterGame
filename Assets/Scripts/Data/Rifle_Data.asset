@@ -21,4 +21,4 @@ MonoBehaviour:
   reloadDuration: 1.5
   fireInterval: 0.15
   automatic: 1
-  spreadAngle: 0
+  spreadAngle: 1.46

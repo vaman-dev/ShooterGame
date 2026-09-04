@@ -40,7 +40,7 @@ public class WeaponFiringState : IWeaponState
 
 
         // First shot should happen immediately.
-        if (controller.CanFire)
+        if (controller.CanStartFiring)
         {
             controller.FireShot();
         }
@@ -65,10 +65,10 @@ public class WeaponFiringState : IWeaponState
 
 
         // =====================================================
-        // MAGAZINE EMPTY
+        // TRIGGER RELEASED
         // =====================================================
 
-        if (controller.IsEmpty)
+        if (!controller.InputReader.IsFirePressed)
         {
             controller.ChangeState(
                 controller.IdleState
@@ -79,10 +79,24 @@ public class WeaponFiringState : IWeaponState
 
 
         // =====================================================
-        // TRIGGER RELEASED
+        // GAMEPLAY PERMISSION LOST
         // =====================================================
 
-        if (!controller.InputReader.IsFirePressed)
+        if (!controller.CanAttemptFire)
+        {
+            controller.ChangeState(
+                controller.IdleState
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // MAGAZINE EMPTY
+        // =====================================================
+
+        if (controller.IsEmpty)
         {
             controller.ChangeState(
                 controller.IdleState

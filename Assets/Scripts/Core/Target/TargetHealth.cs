@@ -73,26 +73,42 @@ public class TargetHealth : MonoBehaviour, IDamageable
     // DAMAGE
     // =========================================================
 
-    public void TakeDamage(float damage)
+    public void TakeDamage(
+        DamageInfo damageInfo)
     {
         if (IsDead)
             return;
 
 
-        if (damage <= 0f)
+        if (damageInfo.Amount <= 0f)
             return;
 
 
         CurrentHealth =
             Mathf.Max(
                 0f,
-                CurrentHealth - damage
+                CurrentHealth -
+                damageInfo.Amount
             );
 
 
+        string instigatorName =
+            damageInfo.Instigator != null
+                ? damageInfo.Instigator.name
+                : "Unknown";
+
+
+        string weaponName =
+            damageInfo.WeaponData != null
+                ? damageInfo.WeaponData.weaponName
+                : "Unknown";
+
+
         Debug.Log(
-            $"[Health] {name} took {damage} damage. " +
-            $"Health: {CurrentHealth}/{maxHealth}",
+            $"[Health] {name} took {damageInfo.Amount} damage. " +
+            $"Health: {CurrentHealth}/{maxHealth} " +
+            $"| From: {instigatorName} " +
+            $"| Weapon: {weaponName}",
             this
         );
 
@@ -108,7 +124,6 @@ public class TargetHealth : MonoBehaviour, IDamageable
             Die();
         }
     }
-
 
     // =========================================================
     // DEATH

@@ -20,6 +20,12 @@ public class SimpleProjectile : MonoBehaviour
 
     private bool initialized;
 
+    private GameObject instigator;
+    private WeaponData sourceWeapon;
+
+    public GameObject Instigator => instigator;
+    public WeaponData SourceWeapon => sourceWeapon;
+
 
     // =========================================================
     // INITIALIZATION
@@ -30,7 +36,9 @@ public class SimpleProjectile : MonoBehaviour
         float projectileSpeed,
         float projectileDamage,
         float projectileMaxRange,
-        LayerMask projectileHitMask)
+        LayerMask projectileHitMask,
+        GameObject projectileInstigator,
+        WeaponData projectileWeapon)
     {
         direction =
             shotDirection.normalized;
@@ -47,9 +55,14 @@ public class SimpleProjectile : MonoBehaviour
         hitMask =
             projectileHitMask;
 
+        instigator =
+            projectileInstigator;
+
+        sourceWeapon =
+            projectileWeapon;
+
         travelledDistance =
             0f;
-
 
         initialized =
             true;
@@ -136,11 +149,29 @@ public class SimpleProjectile : MonoBehaviour
     // =========================================================
 
     private void HandleHit(
-      RaycastHit hit)
+        RaycastHit hit)
     {
-        // Move projectile exactly to collision point.
         transform.position =
             hit.point;
+
+
+        // =========================================================
+        // DEFENSIVE OWNER CHECK
+        // =========================================================
+
+        if (instigator != null &&
+            hit.collider.transform.root ==
+            instigator.transform.root)
+        {
+            // Fail safely if layer filtering ever allows the projectile
+            // to encounter its owner. Do not leave a projectile stuck
+            // repeatedly resolving the same owner hit.
+            Destroy(
+                gameObject
+            );
+
+            return;
+        }
 
 
         // =========================================================
@@ -154,8 +185,18 @@ public class SimpleProjectile : MonoBehaviour
 
         if (damageable != null)
         {
+            DamageInfo damageInfo =
+                new DamageInfo(
+                    damage,
+                    hit.point,
+                    hit.normal,
+                    instigator,
+                    sourceWeapon
+                );
+
+
             damageable.TakeDamage(
-                damage
+                damageInfo
             );
         }
 
@@ -166,14 +207,12 @@ public class SimpleProjectile : MonoBehaviour
 
         Debug.Log(
             $"[Projectile] Hit: {hit.collider.name} " +
-            $"| Damage: {damage}",
+            $"| Damage: {damage} " +
+            $"| Instigator: {(instigator != null ? instigator.name : "None")} " +
+            $"| Weapon: {(sourceWeapon != null ? sourceWeapon.weaponName : "None")}",
             hit.collider
         );
 
-
-        // =========================================================
-        // DESTROY PROJECTILE
-        // =========================================================
 
         Destroy(
             gameObject

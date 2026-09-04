@@ -105,11 +105,18 @@ public class WeaponController : MonoBehaviour
     [SerializeField]
     private WeaponData weaponData;
 
+    [SerializeField]
+    private WeaponFirePolicy firePolicy;
+
     [Tooltip(
         "Actual position from which the projectile leaves the weapon."
     )]
     [SerializeField]
     private Transform muzzlePoint;
+
+    [SerializeField]
+    private MuzzleClearanceResolver muzzleClearance =
+        new MuzzleClearanceResolver();
 
 
     // =========================================================
@@ -227,6 +234,16 @@ public class WeaponController : MonoBehaviour
         FireCooldownElapsed;
 
 
+    public bool CanAttemptFire =>
+        firePolicy != null &&
+        firePolicy.CanAttemptFire;
+
+
+    public bool CanStartFiring =>
+        CanFire &&
+        CanAttemptFire;
+
+
     public bool CanReload =>
         weaponData != null &&
         CurrentAmmo < weaponData.maxAmmo;
@@ -246,6 +263,26 @@ public class WeaponController : MonoBehaviour
 
         ReloadingState =
             new WeaponReloadingState();
+
+
+        if (firePolicy == null)
+        {
+            firePolicy =
+                GetComponent<WeaponFirePolicy>();
+        }
+
+
+        if (firePolicy == null)
+        {
+            Debug.LogError(
+                "[Weapon] WeaponFirePolicy missing.",
+                this
+            );
+
+            enabled = false;
+
+            return;
+        }
 
 
         if (weaponData == null)
@@ -388,6 +425,20 @@ public class WeaponController : MonoBehaviour
 
     public void FireShot()
     {
+        // =====================================================
+        // GAMEPLAY PERMISSION
+        // =====================================================
+
+        // Keep this defensive guard even though the weapon states also
+        // check policy. Other gameplay code may call FireShot directly.
+        if (!CanAttemptFire)
+            return;
+
+
+        // =====================================================
+        // MECHANICAL READINESS
+        // =====================================================
+
         if (CurrentAmmo <= 0)
         {
             NotifyFireBlockedNoAmmo();
@@ -439,6 +490,22 @@ public class WeaponController : MonoBehaviour
 
 
         // -----------------------------------------------------
+        // PRODUCTION MUZZLE CLEARANCE
+        // -----------------------------------------------------
+
+        // Reject the attempt before projectile creation and before
+        // committing ammo, cooldown, or ShotFired feedback.
+        if (muzzleClearance == null ||
+            !muzzleClearance.HasClearance(
+                muzzlePoint.position,
+                shotDirection
+            ))
+        {
+            return;
+        }
+
+
+        // -----------------------------------------------------
         // PROJECTILE ROTATION
         // -----------------------------------------------------
 
@@ -483,12 +550,14 @@ public class WeaponController : MonoBehaviour
         // -----------------------------------------------------
 
         projectile.Initialize(
-            shotDirection,
-            weaponData.projectileSpeed,
-            weaponData.damage,
-            weaponData.maxRange,
-            projectileHitMask
-        );
+       shotDirection,
+       weaponData.projectileSpeed,
+       weaponData.damage,
+       weaponData.maxRange,
+       projectileHitMask,
+       gameObject,
+       weaponData
+                );
 
 
         // =====================================================

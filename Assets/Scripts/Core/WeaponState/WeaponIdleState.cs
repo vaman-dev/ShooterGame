@@ -74,6 +74,16 @@ public class WeaponIdleState : IWeaponState
 
 
         // =====================================================
+        // GAMEPLAY PERMISSION
+        // =====================================================
+
+        if (!controller.CanAttemptFire)
+        {
+            return;
+        }
+
+
+        // =====================================================
         // EMPTY MAGAZINE
         // =====================================================
 
@@ -94,7 +104,7 @@ public class WeaponIdleState : IWeaponState
         // START FIRING SESSION
         // =====================================================
 
-        if (controller.FireCooldownElapsed)
+        if (controller.CanStartFiring)
         {
             controller.ChangeState(
                 controller.FiringState
