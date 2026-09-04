@@ -320,6 +320,12 @@ public class PlayerController : MonoBehaviour
     public Vector3 Velocity =>
         velocity;
 
+    public bool IsSprinting =>
+        ReferenceEquals(
+            currentState,
+            SprintState
+        );
+
 
     // =========================================================
     // MOVEMENT INFORMATION
@@ -387,7 +393,15 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         if (coverController != null && coverController.IsInCover)
-            return; // Skip normal movement/state ticking entirely while in cover
+        {
+            // CoverController owns movement while in cover. Clear the
+            // free-roam direction so animation and camera consumers do not
+            // continue using the last direction from before cover entry.
+            movementDirection =
+                Vector3.zero;
+
+            return;
+        }
 
         currentState?.Tick(this);
     }
