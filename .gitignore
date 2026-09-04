@@ -76,3 +76,10 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# fbx files
+*.fbx
+*.fbx.meta
+/Assets/Models/
+
+
