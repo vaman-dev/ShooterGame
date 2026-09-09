@@ -44,6 +44,7 @@ public class CameraModeSwitcher : MonoBehaviour
     {
         HipFire,
         Aim,
+        Sprint,
         Cover
     }
 
@@ -57,6 +58,10 @@ public class CameraModeSwitcher : MonoBehaviour
     [Tooltip("Normal free-roam TPS camera.")]
     [SerializeField]
     private CinemachineCamera hipFireCamera;
+
+    [Tooltip("Wider presentation camera used while the player is sprinting.")]
+    [SerializeField]
+    private CinemachineCamera sprintCamera;
 
     [Tooltip("Normal shoulder / ADS camera.")]
     [SerializeField]
@@ -93,6 +98,10 @@ public class CameraModeSwitcher : MonoBehaviour
     [Tooltip("Provides cover state.")]
     [SerializeField]
     private CoverController coverController;
+
+    [Tooltip("Provides sprint state from the gameplay state machine.")]
+    [SerializeField]
+    private PlayerController playerController;
 
 
     // =========================================================
@@ -168,6 +177,17 @@ public class CameraModeSwitcher : MonoBehaviour
 
 
         // -----------------------------------------------------
+        // SPRINT PRESENTATION
+        // -----------------------------------------------------
+
+        if (playerController != null &&
+            playerController.IsSprinting)
+        {
+            return CameraMode.Sprint;
+        }
+
+
+        // -----------------------------------------------------
         // DEFAULT
         // -----------------------------------------------------
 
@@ -197,6 +217,12 @@ public class CameraModeSwitcher : MonoBehaviour
         SetCameraPriority(
             hipFireCamera,
             newMode == CameraMode.HipFire
+        );
+
+
+        SetCameraPriority(
+            sprintCamera,
+            newMode == CameraMode.Sprint
         );
 
 

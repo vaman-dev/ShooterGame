@@ -112,7 +112,7 @@ public static class PlayerBaseAnimatorSetup
 
         AnimationClip idle = LoadClip("idle.fbx");
         AnimationClip walk = LoadClip("walking.fbx");
-        AnimationClip run = LoadClip("standard run.fbx");
+        AnimationClip run = LoadClip("Running.fbx");
         AnimationClip walkLeft = LoadClip("left strafe walking.fbx");
         AnimationClip walkRight = LoadClip("right strafe walking.fbx");
         AnimationClip runLeft = LoadClip("left strafe.fbx");
