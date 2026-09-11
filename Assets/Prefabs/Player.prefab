@@ -104,6 +104,10 @@ MonoBehaviour:
   animator: {fileID: 6405711650220802046}
   playerController: {fileID: 0}
   cameraRigController: {fileID: 0}
+  weaponAttachmentController: {fileID: 0}
+  weaponController: {fileID: 0}
+  rifleLayerName: Rifle Layer
+  rifleLayerBlendDuration: 0.2
   directionDampTime: 0.1
   movementDampTime: 0.1
 --- !u!95 &6405711650220802046 stripped

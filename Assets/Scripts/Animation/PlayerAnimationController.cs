@@ -17,6 +17,26 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField]
     private CameraRigController cameraRigController;
 
+    [SerializeField]
+    private WeaponAttachmentController weaponAttachmentController;
+
+    [SerializeField]
+    private WeaponController weaponController;
+
+
+    // =========================================================
+    // RIFLE LAYER BLEND
+    // =========================================================
+
+    [Header("Rifle Layer Blend")]
+
+    [SerializeField]
+    private string rifleLayerName = "Rifle Layer";
+
+    [SerializeField]
+    [Min(0.01f)]
+    private float rifleLayerBlendDuration = 0.2f;
+
 
     // =========================================================
     // LOCOMOTION SETTINGS
@@ -64,6 +84,20 @@ public class PlayerAnimationController : MonoBehaviour
     private static readonly int TurnRight90Hash =
         Animator.StringToHash("TurnRight90");
 
+    private static readonly int HasRifleHash =
+        Animator.StringToHash("HasRifle");
+
+    private static readonly int IsAimingHash =
+        Animator.StringToHash("IsAiming");
+
+    private static readonly int FireHash =
+        Animator.StringToHash("Fire");
+
+    private static readonly int ReloadHash =
+        Animator.StringToHash("Reload");
+
+    private int rifleLayerIndex = -1;
+
 
     // =========================================================
     // UNITY
@@ -91,6 +125,26 @@ public class PlayerAnimationController : MonoBehaviour
             cameraRigController =
                 playerController.GetComponentInChildren<CameraRigController>(true);
         }
+
+        if (weaponAttachmentController == null &&
+            playerController != null)
+        {
+            weaponAttachmentController =
+                playerController.GetComponent<WeaponAttachmentController>();
+        }
+
+        if (weaponController == null &&
+            playerController != null)
+        {
+            weaponController =
+                playerController.GetComponent<WeaponController>();
+        }
+
+        if (animator != null)
+        {
+            rifleLayerIndex =
+                animator.GetLayerIndex(rifleLayerName);
+        }
     }
 
 
@@ -107,6 +161,15 @@ public class PlayerAnimationController : MonoBehaviour
         {
             cameraRigController.TurnInPlaceStarted +=
                 HandleTurnInPlaceStarted;
+        }
+
+        if (weaponController != null)
+        {
+            weaponController.ShotFired +=
+                HandleShotFired;
+
+            weaponController.ReloadStarted +=
+                HandleReloadStarted;
         }
     }
 
@@ -125,6 +188,15 @@ public class PlayerAnimationController : MonoBehaviour
             cameraRigController.TurnInPlaceStarted -=
                 HandleTurnInPlaceStarted;
         }
+
+        if (weaponController != null)
+        {
+            weaponController.ShotFired -=
+                HandleShotFired;
+
+            weaponController.ReloadStarted -=
+                HandleReloadStarted;
+        }
     }
 
 
@@ -139,6 +211,7 @@ public class PlayerAnimationController : MonoBehaviour
 
         UpdateLocomotion();
         UpdateAirState();
+        UpdateWeaponState();
     }
 
 
@@ -234,6 +307,77 @@ public class PlayerAnimationController : MonoBehaviour
 
 
     // =========================================================
+    // WEAPON ANIMATION LAYER
+    // =========================================================
+
+    private void UpdateWeaponState()
+    {
+        bool hasRifle =
+            weaponAttachmentController != null &&
+            weaponAttachmentController.IsEquipped;
+
+        bool isAiming =
+            cameraRigController != null &&
+            cameraRigController.IsAiming;
+
+        animator.SetBool(
+            HasRifleHash,
+            hasRifle
+        );
+
+        animator.SetBool(
+            IsAimingHash,
+            hasRifle && isAiming
+        );
+
+        BlendRifleLayer(
+            hasRifle
+        );
+    }
+
+
+    private void BlendRifleLayer(bool hasRifle)
+    {
+        if (rifleLayerIndex < 0 ||
+            rifleLayerIndex >= animator.layerCount)
+        {
+            return;
+        }
+
+        float targetWeight =
+            hasRifle
+                ? 1f
+                : 0f;
+
+        float blendDuration =
+            Mathf.Max(
+                0.01f,
+                rifleLayerBlendDuration
+            );
+
+        float currentWeight =
+            animator.GetLayerWeight(
+                rifleLayerIndex
+            );
+
+        float nextWeight =
+            Mathf.MoveTowards(
+                currentWeight,
+                targetWeight,
+                Time.deltaTime / blendDuration
+            );
+
+        if (!Mathf.Approximately(currentWeight, nextWeight))
+        {
+            animator.SetLayerWeight(
+                rifleLayerIndex,
+                nextWeight
+            );
+        }
+    }
+
+
+    // =========================================================
     // EVENTS
     // =========================================================
 
@@ -261,5 +405,23 @@ public class PlayerAnimationController : MonoBehaviour
                 animator.SetTrigger(TurnRight90Hash);
                 break;
         }
+    }
+
+
+    private void HandleShotFired()
+    {
+        if (animator == null)
+            return;
+
+        animator.SetTrigger(FireHash);
+    }
+
+
+    private void HandleReloadStarted()
+    {
+        if (animator == null)
+            return;
+
+        animator.SetTrigger(ReloadHash);
     }
 }
