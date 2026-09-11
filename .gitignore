@@ -77,9 +77,7 @@ crashlytics-build.properties
 Thumbs.db
 Desktop.ini
 
-# fbx files
-*.fbx
-*.fbx.meta
-/Assets/Models/
+# FBX source assets in Assets are tracked so the project can be cloned and
+# opened with its character, animations, and weapon models intact.
 
 

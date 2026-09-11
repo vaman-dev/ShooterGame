@@ -57,7 +57,7 @@ public static class PlayerBaseAnimatorSetup
     {
         ConfigureClipImport("idle.fbx", true);
         ConfigureClipImport("walking.fbx", true);
-        ConfigureClipImport("standard run.fbx", true);
+        ConfigureClipImport("Running.fbx", true);
         ConfigureClipImport("left strafe walking.fbx", true);
         ConfigureClipImport("right strafe walking.fbx", true);
         ConfigureClipImport("left strafe.fbx", true);
@@ -120,6 +120,8 @@ public static class PlayerBaseAnimatorSetup
         AnimationClip jump = LoadClip("jump.fbx");
         AnimationClip turnLeft = LoadClip("left turn 90.fbx");
         AnimationClip turnRight = LoadClip("right turn 90.fbx");
+
+
 
         if (new[]
             {

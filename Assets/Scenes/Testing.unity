@@ -1538,11 +1538,13 @@ MonoBehaviour:
   maxPitch: 20
   coverController: {fileID: 1370554188}
   aimPitchSensitivity: 0.1
+  aimMinPitch: -1
+  aimMaxPitch: 10
   freeRoamTurnSharpness: 10
-  aimTurnSharpness: 20
+  aimTurnSharpness: 40
   instantSnapWhileAiming: 0
-  turnInPlaceTriggerAngle: 65
-  turnInPlaceDuration: 0.55
+  turnInPlaceTriggerAngle: 5
+  turnInPlaceDuration: 0.5
   stationaryMovementThreshold: 0.05
 --- !u!114 &525899166
 MonoBehaviour:

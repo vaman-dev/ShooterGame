@@ -34,8 +34,10 @@ public class CameraRigController : MonoBehaviour
     [Header("Cover")]
     [SerializeField] private CoverController coverController;
 
-    [Header("Look - Aiming")]
+    [Header("Aim Pitch")]
     [SerializeField] private float aimPitchSensitivity = 1.2f;  // typically lower, more precise
+    [SerializeField] private float aimMinPitch = -40f;
+    [SerializeField] private float aimMaxPitch = 70f;
 
     // =========================================================
     // ROOT ROTATION SETTINGS
@@ -100,10 +102,12 @@ public class CameraRigController : MonoBehaviour
     {
         Vector2 look = inputReader.LookInput;
         float currentPitchSens = IsAiming ? aimPitchSensitivity : pitchSensitivity;
+        float currentMinPitch = IsAiming ? aimMinPitch : minPitch;
+        float currentMaxPitch = IsAiming ? aimMaxPitch : maxPitch;
 
         cameraYaw += look.x * (IsAiming ? aimYawSensitivity : yawSensitivity);
         cameraPitch -= look.y * currentPitchSens;
-        cameraPitch = Mathf.Clamp(cameraPitch, minPitch, maxPitch);
+        cameraPitch = Mathf.Clamp(cameraPitch, currentMinPitch, currentMaxPitch);
         //Debug.Log($"Aiming: {IsAiming}, MoveInput: {playerController.HasMovementInput}");
     }
 
